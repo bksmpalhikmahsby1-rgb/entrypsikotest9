@@ -430,6 +430,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--te
       </div>
       <!-- INFO ROW: kelas, sekolah, tgl lahir, tgl tes -->
       <div id="h3_infoRow" style="display:none;margin-top:10px;background:var(--primary-light);border-radius:7px;padding:8px 14px;display:flex;flex-wrap:wrap;gap:14px;">
+        <div class="id-item"><div class="id-label">Nama</div><div class="id-val" id="h3_namaDisplay">–</div></div>
         <div class="id-item"><div class="id-label">Kelas</div><div class="id-val" id="h3_kelas">–</div></div>
         <div class="id-item"><div class="id-label">Jenis Kelamin</div><div class="id-val" id="h3_jkLabel">–</div></div>
         <div class="id-item"><div class="id-label">Sekolah</div><div class="id-val">SMP Al Hikmah Surabaya</div></div>
@@ -1015,6 +1016,94 @@ function normalizeNoInduk(v){
   return digits.length <= 4 ? digits.padStart(4,'0') : digits;
 }
 
+function ddmmyyyyToISO(str){
+  const m = String(str||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return '';
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+// Cari identitas siswa berdasar No. Induk: cek data lokal (SKOR_DATA) dulu, lalu Google Sheet
+async function cariIdentitasByNoInduk(noInduk){
+  // 1. Cek data sesi lokal
+  const lokal = Object.values(SKOR_DATA).find(e => (e.identity.noInduk||'').toString().trim() === noInduk);
+  if(lokal){
+    return { found:true, source:'local', data: {
+      nama: lokal.identity.nama, namaPanggil: lokal.identity.namaPanggil,
+      jenisKelamin: lokal.identity.jenisKelamin, kelas: lokal.identity.kelas,
+      tglLahir: lokal.identity.tglLahir
+    }};
+  }
+  // 2. Cek Google Sheet (jika sudah terhubung)
+  if(getSheetUrl()){
+    const hasil = await tarikSemuaDariGoogleSheet();
+    if(hasil.ok){
+      const match = (hasil.data||[]).find(r => (r['No. Induk']||'').toString().trim() === noInduk);
+      if(match){
+        const jk = match['Jenis Kelamin']==='Laki-laki' ? 'L' : match['Jenis Kelamin']==='Perempuan' ? 'P' : '';
+        return { found:true, source:'sheet', data: {
+          nama: match['Nama Lengkap'], namaPanggil: match['Nama Panggil'],
+          jenisKelamin: jk, kelas: match['Kelas'],
+          tglLahir: ddmmyyyyToISO(match['Tgl Lahir'])
+        }};
+      }
+    }
+  }
+  return { found:false };
+}
+
+async function autoisiIdentitasH2(noInduk){
+  const hasil = await cariIdentitasByNoInduk(noInduk);
+  if(!hasil.found) return;
+  const d = hasil.data;
+  document.getElementById('namaLengkap').value = d.nama||'';
+  document.getElementById('namaPanggil').value = d.namaPanggil||'';
+  document.getElementById('jenisKelamin').value = d.jenisKelamin||'';
+  const kelasSel = document.getElementById('kelas');
+  if(d.kelas){
+    for(let i=0;i<kelasSel.options.length;i++){
+      if(kelasSel.options[i].value === d.kelas){ kelasSel.selectedIndex = i; break; }
+    }
+  }
+  if(d.tglLahir){
+    document.getElementById('tglLahir').value = d.tglLahir;
+    hitungUsia();
+  }
+  showMsg('identitasInfo','success', `✅ No. Induk sudah pernah tersimpan (${hasil.source==='sheet'?'Google Sheet':'sesi ini'}) — identitas otomatis terisi, tidak perlu mengisi ulang.`);
+}
+
+async function autoisiIdentitasH3(noInduk){
+  const hasil = await cariIdentitasByNoInduk(noInduk);
+  if(!hasil.found) return;
+  const d = hasil.data;
+
+  document.getElementById('h3_namaPanggil').value = d.namaPanggil||'';
+  document.getElementById('h3_jenisKelamin').value = d.jenisKelamin||'';
+
+  const infoRow = document.getElementById('h3_infoRow');
+  if(infoRow) infoRow.style.display = 'flex';
+  const el=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v||'–'; };
+  el('h3_namaDisplay', d.nama);
+  el('h3_kelas', d.kelas);
+  el('h3_jkLabel', d.jenisKelamin==='L'?'Laki-laki (L)':d.jenisKelamin==='P'?'Perempuan (P)':d.jenisKelamin||'–');
+  el('h3_tglLahir', d.tglLahir ? fmtDateShort(d.tglLahir) : '–');
+
+  const tglTes = document.getElementById('tglTes').value;
+  const usia = hitungUsiaFromDates(tglTes, d.tglLahir);
+  document.getElementById('h3_usia').value = usia||'';
+  el('h3_tglTes', fmtDateShort(tglTes));
+
+  // Sinkronkan ke DATA.identity agar laporan H4 ikut terisi
+  DATA.identity.nama         = d.nama||DATA.identity.nama;
+  DATA.identity.namaPanggil  = d.namaPanggil||'';
+  DATA.identity.jenisKelamin = d.jenisKelamin||'';
+  DATA.identity.kelas        = d.kelas||'';
+  DATA.identity.tglLahir     = d.tglLahir||'';
+  DATA.identity.usia         = usia||'';
+  DATA.identity.noInduk      = noInduk;
+
+  showH3Status('success', `✅ No. Induk sudah pernah tersimpan (${hasil.source==='sheet'?'Google Sheet':'sesi ini'}) — identitas otomatis terisi.`);
+}
+
 function isNoIndukValid(v){
   return /^\d{4}$/.test((v||'').toString().trim());
 }
@@ -1053,6 +1142,9 @@ function validasiNoInduk(el){
       dupWarn.style.display = 'none';
     }
   }
+  if(isNoIndukValid(val)){
+    autoisiIdentitasH2(val);
+  }
 }
 
 function validasiH3NoInduk(el){
@@ -1070,6 +1162,9 @@ function validasiH3NoInduk(el){
     } else {
       dupWarn.style.display = 'none';
     }
+  }
+  if(isNoIndukValid(val)){
+    autoisiIdentitasH3(val);
   }
 }
 
@@ -1243,6 +1338,7 @@ function isiH3DariIdentitas(id){
   if(infoRow) infoRow.style.display='flex';
 
   const el=(elId,val)=>{ const e=document.getElementById(elId); if(e) e.textContent=val||'–'; };
+  el('h3_namaDisplay', id.nama);
   el('h3_kelas',    id.kelas);
   el('h3_jkLabel',  id.jenisKelamin==='L'?'Laki-laki (L)':id.jenisKelamin==='P'?'Perempuan (P)':id.jenisKelamin||'–');
   el('h3_tglLahir', id.tglLahir ? fmtDateShort(id.tglLahir) : '–');
@@ -1328,6 +1424,7 @@ function pilihSiswa(idx){
   const infoRow = document.getElementById('h3_infoRow');
   if(infoRow){ infoRow.style.display='flex'; }
   const el=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v||'–'; };
+  el('h3_namaDisplay', s.nama);
   el('h3_kelas', s.kelas);
   el('h3_jkLabel', s.jenisKelamin==='L'?'Laki-laki (L)':s.jenisKelamin==='P'?'Perempuan (P)':s.jenisKelamin||'–');
   el('h3_tglLahir', s.tglLahir ? fmtDateShort(s.tglLahir) : '–');
