@@ -1056,8 +1056,12 @@ async function cariIdentitasByNoInduk(noInduk){
 }
 
 async function autoisiIdentitasH2(noInduk){
+  showMsg('identitasInfo','info', `⏳ Mencari No. Induk "${noInduk}"...`);
   const hasil = await cariIdentitasByNoInduk(noInduk);
-  if(!hasil.found) return;
+  if(!hasil.found){
+    showMsg('identitasInfo','info', `ℹ️ No. Induk "${noInduk}" belum pernah tersimpan sebelumnya. Silakan isi identitas baru.`);
+    return;
+  }
   const d = hasil.data;
   document.getElementById('namaLengkap').value = d.nama||'';
   document.getElementById('namaPanggil').value = d.namaPanggil||'';
@@ -1076,8 +1080,12 @@ async function autoisiIdentitasH2(noInduk){
 }
 
 async function autoisiIdentitasH3(noInduk){
+  showH3Status('success', `⏳ Mencari No. Induk "${noInduk}"...`);
   const hasil = await cariIdentitasByNoInduk(noInduk);
-  if(!hasil.found) return;
+  if(!hasil.found){
+    showH3Status('danger', `ℹ️ No. Induk "${noInduk}" belum pernah tersimpan sebelumnya.`);
+    return;
+  }
   const d = hasil.data;
 
   document.getElementById('h3_namaPanggil').value = d.namaPanggil||'';
