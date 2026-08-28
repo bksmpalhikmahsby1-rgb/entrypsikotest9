@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Psikotest Kelas 9 – SMP Al Hikmah Surabaya</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root {
   --primary:#1a4b8c; --primary-light:#e8f0fb; --secondary:#0d7a55;
@@ -589,6 +590,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--te
       <span style="flex:1;font-size:12px;color:var(--text-muted);">Format A4 · 1 halaman · RAHASIA</span>
       <button class="btn btn-primary" onclick="window.print()">🖨 Cetak</button>
       <button class="btn btn-outline" onclick="downloadLaporanWord()">📄 Download Word</button>
+      <button class="btn btn-outline" onclick="downloadLaporanPDF()">📕 Download PDF</button>
       <button class="btn btn-outline" onclick="goPage(3)">← Kembali ke Data</button>
     </div>
 
@@ -1670,45 +1672,110 @@ function hitungRentangTglTes_(dataRows){
 }
 
 function downloadLaporanWord(){
-  const reportEl = document.getElementById('reportCard');
-  if(!reportEl){
+  const id = DATA.identity || {};
+  if(!id.nama){
     alert('Laporan belum siap. Silakan buka laporan siswa terlebih dahulu.');
     return;
   }
 
-  // Ambil style cetak yang relevan agar tabel, border, dan font tetap sama seperti versi cetak
-  const styleCSS = `
-    body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#111;}
-    .rpt-kop{display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:2.5px solid #111;margin-bottom:6px;}
-    .rpt-kop-logo{width:56px;height:56px;border-radius:50%;border:2.5px solid #1a4b8c;object-fit:cover;}
-    .rpt-kop-text h3{font-size:12pt;font-weight:bold;line-height:1.4;}
-    .rpt-kop-rahasia{border:1.5px solid #111;padding:3px 12px;font-size:10pt;font-weight:bold;letter-spacing:1px;margin-left:auto;}
-    .rpt-judul{text-align:center;font-size:13pt;font-weight:bold;margin:10px 0 8px;}
-    .rpt-identitas{width:100%;margin-bottom:10px;font-size:10.5pt;}
-    .rpt-id-row{display:flex;padding:2px 0;}
-    .rpt-id-label{min-width:110px;}
-    .rpt-id-val{font-weight:bold;}
-    table.rpt-aspek-table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:10px;}
-    table.rpt-aspek-table th{background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-weight:bold;}
-    table.rpt-aspek-table td{border:1px solid #888;padding:5px 7px;}
-    table.rpt-aspek-table td.cat-col{text-align:center;font-weight:bold;}
-    table.rpt-aspek-table tr.section-header td{background:#e8e8e8;font-weight:bold;}
-    .rpt-uraian-box,.rpt-saran-box{border:1px solid #888;padding:10px;margin-bottom:10px;font-size:10.5pt;line-height:1.6;}
-    .rpt-uraian-title{font-weight:bold;text-transform:uppercase;margin-bottom:6px;}
-    .rpt-ttd{margin-top:20px;text-align:right;}
-    .rpt-ttd-inner{display:inline-block;text-align:center;min-width:220px;}
-    .rpt-ttd-line{border-bottom:1px solid #111;width:180px;margin:40px auto 8px;}
-    .sig-edit{border:none;text-align:center;font-weight:bold;background:transparent;}
-  `;
+  const getVal = (elId) => {
+    const el = document.getElementById(elId);
+    if(!el) return '–';
+    if(el.tagName === 'INPUT') return el.value || el.placeholder || '';
+    return el.textContent || '–';
+  };
 
-  // Salin konten laporan, ubah input jadi teks statis (agar tampil isinya, bukan kotak input kosong)
-  const clone = reportEl.cloneNode(true);
-  clone.querySelectorAll('input').forEach(inp=>{
-    const span = document.createElement('span');
-    span.textContent = inp.value || inp.placeholder || '';
-    span.className = inp.className;
-    inp.parentNode.replaceChild(span, inp);
-  });
+  const aspekRowsHTML = document.getElementById('rpt_aspek_tbody').innerHTML;
+  const uraianText = getVal('rpt_uraian');
+  const saranText = getVal('rpt_saran');
+  const tglLahir = getVal('rpt_tglLahir');
+  const usia = getVal('rpt_usia');
+  const tglSign = getVal('rpt_tglSign');
+  const sigNamaVal = getVal('sigNama') || '__________________';
+  const sigSIPPVal = getVal('sigSIPP') || 'SIPP / NIP : ...';
+
+  // Logo sebagai <img> base64 (diambil dari kop asli agar identik)
+  const logoImg = document.querySelector('.rpt-kop-logo');
+  const logoSrc = logoImg ? logoImg.src : '';
+
+  // Semua layout dibangun ulang dengan <table>, karena Word TIDAK mendukung
+  // CSS flexbox/grid (display:flex / display:grid) — hanya tabel HTML klasik.
+  const bodyHTML = `
+    <table width="100%" style="border-collapse:collapse;margin-bottom:6px;">
+      <tr>
+        <td style="width:70px;vertical-align:middle;">
+          ${logoSrc ? `<img src="${logoSrc}" width="56" height="56" style="border-radius:50%;">` : ''}
+        </td>
+        <td style="vertical-align:middle;border-bottom:2.5px solid #111;padding-bottom:6px;">
+          <p style="font-size:12pt;font-weight:bold;line-height:1.4;margin:0;">BIMBINGAN KONSELING<br>SMP AL HIKMAH FULLDAY SCHOOL<br>SURABAYA</p>
+        </td>
+        <td style="width:90px;vertical-align:middle;text-align:right;border-bottom:2.5px solid #111;padding-bottom:6px;">
+          <span style="border:1.5px solid #111;padding:3px 12px;font-size:10pt;font-weight:bold;letter-spacing:1px;">RAHASIA</span>
+        </td>
+      </tr>
+    </table>
+
+    <p style="text-align:center;font-size:13pt;font-weight:bold;margin:10px 0 8px;">LAPORAN HASIL PEMERIKSAAN PSIKOLOGI</p>
+
+    <table width="100%" style="border-collapse:collapse;font-size:10.5pt;margin-bottom:10px;">
+      <tr>
+        <td style="width:45%;padding:2px 0;"><span style="display:inline-block;width:110px;">Nama</span>: <b>${id.nama||'–'}</b></td>
+        <td style="width:55%;padding:2px 0;"><span style="display:inline-block;width:110px;">Asal Sekolah</span>: <b>${id.sekolah||'SMP Al Hikmah Surabaya'}</b></td>
+      </tr>
+      <tr>
+        <td style="padding:2px 0;"><span style="display:inline-block;width:110px;">Nama Panggil</span>: <b>${id.namaPanggil||'–'}</b></td>
+        <td style="padding:2px 0;"><span style="display:inline-block;width:110px;">Jenis Kelamin</span>: <b>${id.jenisKelamin==='L'?'Laki-laki (L)':id.jenisKelamin==='P'?'Perempuan (P)':'–'}</b></td>
+      </tr>
+      <tr>
+        <td style="padding:2px 0;"><span style="display:inline-block;width:110px;">Kelas</span>: <b>${id.kelas||'–'}</b></td>
+        <td style="padding:2px 0;"><span style="display:inline-block;width:110px;">Tanggal Tes</span>: <b>${getVal('rpt_tglTes')}</b></td>
+      </tr>
+      <tr>
+        <td style="padding:2px 0;"><span style="display:inline-block;width:110px;">No. Induk</span>: <b>${id.noInduk||'–'}</b></td>
+        <td style="padding:2px 0;"><span style="display:inline-block;width:110px;">Tgl Lahir / Usia</span>: <b>${tglLahir} / ${usia}</b></td>
+      </tr>
+    </table>
+
+    <table class="rpt-aspek-table" width="100%" style="border-collapse:collapse;font-size:10pt;margin-bottom:10px;">
+      <thead>
+        <tr>
+          <th style="background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:left;font-weight:bold;">ASPEK-ASPEK PSIKOLOGI</th>
+          <th style="background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-weight:bold;width:38px;">KS</th>
+          <th style="background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-weight:bold;width:38px;">K</th>
+          <th style="background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-weight:bold;width:38px;">C</th>
+          <th style="background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-weight:bold;width:38px;">B</th>
+          <th style="background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-weight:bold;width:38px;">BS</th>
+        </tr>
+      </thead>
+      <tbody>${aspekRowsHTML}</tbody>
+    </table>
+
+    <table width="100%" style="border-collapse:collapse;margin-bottom:10px;">
+      <tr><td style="border:1px solid #888;padding:10px;font-size:10.5pt;line-height:1.6;">
+        <p style="font-weight:bold;text-transform:uppercase;margin:0 0 6px;">URAIAN SINGKAT</p>
+        <p style="margin:0;text-align:justify;">${uraianText}</p>
+      </td></tr>
+    </table>
+
+    <table width="100%" style="border-collapse:collapse;margin-bottom:14px;">
+      <tr><td style="border:1px solid #888;padding:10px;font-size:10.5pt;line-height:1.6;">
+        <p style="font-weight:bold;text-transform:uppercase;margin:0 0 6px;">SARAN DAN REKOMENDASI</p>
+        <p style="margin:0;text-align:justify;">${saranText}</p>
+      </td></tr>
+    </table>
+
+    <table width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td style="width:60%;"></td>
+        <td style="width:40%;text-align:center;font-size:10.5pt;">
+          <p style="margin:0;">Surabaya, <b>${tglSign}</b></p>
+          <p style="margin:0 0 40px;">Konselor Sekolah / Guru BK,</p>
+          <p style="margin:0;font-weight:bold;border-bottom:1px solid #111;display:inline-block;padding:0 20px 2px;">${sigNamaVal}</p>
+          <p style="margin:4px 0 0;font-size:9.5pt;">${sigSIPPVal}</p>
+        </td>
+      </tr>
+    </table>
+  `;
 
   const htmlContent = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -1724,15 +1791,20 @@ function downloadLaporanWord(){
         </w:WordDocument>
       </xml>
       <![endif]-->
-      <style>${styleCSS}</style>
+      <style>
+        body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#111;}
+        table{border-collapse:collapse;}
+        table.rpt-aspek-table td,table.rpt-aspek-table th{border:1px solid #888;}
+        tr.section-header td{background:#e8e8e8;font-weight:bold;}
+        td.cat-col{text-align:center;font-weight:bold;font-size:13pt;}
+      </style>
     </head>
-    <body>${clone.outerHTML}</body>
+    <body>${bodyHTML}</body>
     </html>
   `;
 
   const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
-  const id = DATA.identity || {};
   const namaFile = (id.nama || 'Siswa').replace(/\s+/g,'_');
   const tglFile = (id.tglTes || '').replace(/-/g,'');
   const a = document.createElement('a');
@@ -1742,6 +1814,51 @@ function downloadLaporanWord(){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function downloadLaporanPDF(){
+  const reportEl = document.getElementById('reportCard');
+  if(!reportEl){
+    alert('Laporan belum siap. Silakan buka laporan siswa terlebih dahulu.');
+    return;
+  }
+  if(typeof html2pdf === 'undefined'){
+    alert('Gagal memuat komponen PDF. Pastikan Anda terhubung ke internet, lalu coba lagi.');
+    return;
+  }
+
+  // Salin konten laporan, ubah input jadi teks statis agar isinya tampil di PDF
+  const clone = reportEl.cloneNode(true);
+  clone.querySelectorAll('input').forEach(inp=>{
+    const span = document.createElement('span');
+    span.textContent = inp.value || inp.placeholder || '';
+    span.style.cssText = inp.style.cssText;
+    span.className = inp.className;
+    inp.parentNode.replaceChild(span, inp);
+  });
+  clone.style.boxShadow = 'none';
+
+  const id = DATA.identity || {};
+  const namaFile = (id.nama || 'Siswa').replace(/\s+/g,'_');
+  const tglFile = (id.tglTes || '').replace(/-/g,'');
+  const fileName = `Laporan_Psikotest_${namaFile}_${tglFile}.pdf`;
+
+  const opt = {
+    margin: 0,
+    filename: fileName,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'avoid-all'] }
+  };
+
+  const btn = document.querySelector('button[onclick="downloadLaporanPDF()"]');
+  const teksAsli = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = '⏳ Membuat PDF...'; btn.disabled = true; }
+
+  html2pdf().set(opt).from(clone).save().finally(()=>{
+    if(btn){ btn.textContent = teksAsli; btn.disabled = false; }
+  });
 }
 
 async function exportRekapExcel(){
