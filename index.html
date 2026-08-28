@@ -152,18 +152,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--te
 .rpt-aspek-table th{background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-size:9pt;font-family:'Segoe UI',Arial,sans-serif;font-weight:700;}
 .rpt-aspek-table th.th-left{text-align:left;}
 .rpt-aspek-table td{border:1px solid #888;padding:4px 7px;vertical-align:middle;}
+.rpt-aspek-table tr{break-inside:avoid;page-break-inside:avoid;}
 .rpt-aspek-table td.cat-col{text-align:center;font-size:14pt;font-weight:700;width:38px;padding:4px 2px;vertical-align:middle;}
 .rpt-aspek-table tr.section-header td{background:#d8d8d8;font-weight:700;font-size:9pt;padding:5px 8px;font-family:'Segoe UI',Arial,sans-serif;letter-spacing:.3px;}
 
 /* URAIAN */
-.rpt-uraian-box{border:1px solid #888;padding:8px 10px;margin-bottom:7px;font-size:9.5pt;line-height:1.6;}
+.rpt-uraian-box{border:1px solid #888;padding:8px 10px;margin-bottom:7px;font-size:9.5pt;line-height:1.6;break-inside:avoid;page-break-inside:avoid;}
 .rpt-uraian-title{font-weight:700;font-size:9.5pt;font-family:'Segoe UI',Arial,sans-serif;text-transform:uppercase;margin-bottom:4px;letter-spacing:.3px;}
 
 /* SARAN */
-.rpt-saran-box{border:1px solid #888;padding:8px 10px;margin-bottom:10px;font-size:9.5pt;line-height:1.6;}
+.rpt-saran-box{border:1px solid #888;padding:8px 10px;margin-bottom:10px;font-size:9.5pt;line-height:1.6;break-inside:avoid;page-break-inside:avoid;}
 
 /* TTD */
-.rpt-ttd{display:flex;justify-content:flex-end;margin-top:6px;}
+.rpt-ttd{display:flex;justify-content:flex-end;margin-top:6px;break-inside:avoid;page-break-inside:avoid;}
 .rpt-ttd-inner{text-align:center;min-width:220px;}
 .rpt-ttd-inner p{font-size:9.5pt;color:#111;margin-bottom:2px;}
 .rpt-ttd-line{border-bottom:1.5px solid #111;width:180px;margin:44px auto 6px;}
@@ -587,6 +588,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--te
       <span style="font-size:14px;font-weight:700;color:var(--primary);">📄 Pratinjau Laporan Cetak</span>
       <span style="flex:1;font-size:12px;color:var(--text-muted);">Format A4 · 1 halaman · RAHASIA</span>
       <button class="btn btn-primary" onclick="window.print()">🖨 Cetak</button>
+      <button class="btn btn-outline" onclick="downloadLaporanWord()">📄 Download Word</button>
       <button class="btn btn-outline" onclick="goPage(3)">← Kembali ke Data</button>
     </div>
 
@@ -1665,6 +1667,81 @@ function hitungRentangTglTes_(dataRows){
   const max = new Date(Math.max(...tanggalList));
   const minStr = fmtDDMMYYYY_(min), maxStr = fmtDDMMYYYY_(max);
   return minStr === maxStr ? minStr : `${minStr} – ${maxStr}`;
+}
+
+function downloadLaporanWord(){
+  const reportEl = document.getElementById('reportCard');
+  if(!reportEl){
+    alert('Laporan belum siap. Silakan buka laporan siswa terlebih dahulu.');
+    return;
+  }
+
+  // Ambil style cetak yang relevan agar tabel, border, dan font tetap sama seperti versi cetak
+  const styleCSS = `
+    body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#111;}
+    .rpt-kop{display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:2.5px solid #111;margin-bottom:6px;}
+    .rpt-kop-logo{width:56px;height:56px;border-radius:50%;border:2.5px solid #1a4b8c;object-fit:cover;}
+    .rpt-kop-text h3{font-size:12pt;font-weight:bold;line-height:1.4;}
+    .rpt-kop-rahasia{border:1.5px solid #111;padding:3px 12px;font-size:10pt;font-weight:bold;letter-spacing:1px;margin-left:auto;}
+    .rpt-judul{text-align:center;font-size:13pt;font-weight:bold;margin:10px 0 8px;}
+    .rpt-identitas{width:100%;margin-bottom:10px;font-size:10.5pt;}
+    .rpt-id-row{display:flex;padding:2px 0;}
+    .rpt-id-label{min-width:110px;}
+    .rpt-id-val{font-weight:bold;}
+    table.rpt-aspek-table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:10px;}
+    table.rpt-aspek-table th{background:#e8e8e8;border:1px solid #555;padding:5px 7px;text-align:center;font-weight:bold;}
+    table.rpt-aspek-table td{border:1px solid #888;padding:5px 7px;}
+    table.rpt-aspek-table td.cat-col{text-align:center;font-weight:bold;}
+    table.rpt-aspek-table tr.section-header td{background:#e8e8e8;font-weight:bold;}
+    .rpt-uraian-box,.rpt-saran-box{border:1px solid #888;padding:10px;margin-bottom:10px;font-size:10.5pt;line-height:1.6;}
+    .rpt-uraian-title{font-weight:bold;text-transform:uppercase;margin-bottom:6px;}
+    .rpt-ttd{margin-top:20px;text-align:right;}
+    .rpt-ttd-inner{display:inline-block;text-align:center;min-width:220px;}
+    .rpt-ttd-line{border-bottom:1px solid #111;width:180px;margin:40px auto 8px;}
+    .sig-edit{border:none;text-align:center;font-weight:bold;background:transparent;}
+  `;
+
+  // Salin konten laporan, ubah input jadi teks statis (agar tampil isinya, bukan kotak input kosong)
+  const clone = reportEl.cloneNode(true);
+  clone.querySelectorAll('input').forEach(inp=>{
+    const span = document.createElement('span');
+    span.textContent = inp.value || inp.placeholder || '';
+    span.className = inp.className;
+    inp.parentNode.replaceChild(span, inp);
+  });
+
+  const htmlContent = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset="utf-8">
+      <title>Laporan Hasil Pemeriksaan Psikologi</title>
+      <!--[if gte mso 9]>
+      <xml>
+        <w:WordDocument>
+          <w:View>Print</w:View>
+          <w:Zoom>100</w:Zoom>
+          <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+      </xml>
+      <![endif]-->
+      <style>${styleCSS}</style>
+    </head>
+    <body>${clone.outerHTML}</body>
+    </html>
+  `;
+
+  const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const id = DATA.identity || {};
+  const namaFile = (id.nama || 'Siswa').replace(/\s+/g,'_');
+  const tglFile = (id.tglTes || '').replace(/-/g,'');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Laporan_Psikotest_${namaFile}_${tglFile}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function exportRekapExcel(){
