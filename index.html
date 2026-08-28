@@ -643,7 +643,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--te
         <!-- TTD -->
         <div class="rpt-ttd">
           <div class="rpt-ttd-inner">
-            <p>Surabaya, <span id="rpt_tglSign">–</span></p>
+            <p>Surabaya, <input class="sig-edit" id="rpt_tglSign" type="text" style="display:inline-block;width:140px;font-size:inherit;color:inherit;text-align:center;padding:0 2px;" oninput="this.dataset.manualEdit='1'"></p>
             <p>Konselor Sekolah / Guru BK,</p>
             <div class="rpt-ttd-line"></div>
             <input class="sig-edit" id="sigNama" type="text" placeholder="Nama Konselor" oninput="this.dataset.manualEdit='1'">
@@ -1807,7 +1807,12 @@ function renderReport(){
   document.getElementById('rpt_tglTes').textContent=fmtDateShort(id.tglTes);
   document.getElementById('rpt_tglLahir').textContent=fmtDateShort(id.tglLahir);
   document.getElementById('rpt_usia').textContent=id.usia||'–';
-  document.getElementById('rpt_tglSign').textContent=fmtDate(id.tglTes);
+
+  // Tanggal tanda tangan: otomatis dari Tgl Tes, tetap bisa diedit manual
+  const tglSignEl = document.getElementById('rpt_tglSign');
+  if(tglSignEl && !tglSignEl.dataset.manualEdit){
+    tglSignEl.value = fmtDate(id.tglTes);
+  }
 
   // Auto-isi nama konselor di kolom tanda tangan (tetap bisa diedit manual)
   const sigNamaEl = document.getElementById('sigNama');
