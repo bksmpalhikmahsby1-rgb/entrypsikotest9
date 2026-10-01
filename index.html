@@ -481,6 +481,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--te
         <div class="result-cell" id="res_logmat_skala"><div class="r-label">Skala</div><div class="r-val">–</div></div>
         <div class="result-cell" id="res_logmat_kat"><div class="r-label">Kategori</div><div class="r-val">–</div></div>
       </div>
+      <div class="input-grid" style="grid-template-columns:260px 1fr 1fr;">
+        <div class="result-cell"><div class="r-label">Skor Deret saja</div><div class="r-val" style="font-size:11px;">Skala &amp; kategori khusus Deret</div></div>
+        <div class="result-cell" id="res_deret_skala"><div class="r-label">Skala Deret</div><div class="r-val">–</div></div>
+        <div class="result-cell" id="res_deret_kat"><div class="r-label">Kategori Deret</div><div class="r-val">–</div></div>
+      </div>
 
       <!-- e. INFORMATION -->
       <div class="sdiv">e. Information (Wawasan)</div>
@@ -1496,6 +1501,8 @@ function anaSkala(s){ if(s>15)return'Di atas rata-rata'; if(s>10)return'Rata-rat
 function anaKat(s){ if(s>15)return'BS'; if(s>10)return'B'; if(s>6)return'C'; if(s>2)return'K'; return'KS'; }
 function logmatSkala(s){ if(s>18)return'Di atas rata-rata'; if(s>12)return'Rata-rata atas'; if(s>7)return'Rata-rata'; if(s>3)return'Di bawah rata-rata'; return'Rata-rata bawah'; }
 function logmatKat(s){ if(s>18)return'BS'; if(s>12)return'B'; if(s>7)return'C'; if(s>3)return'K'; return'KS'; }
+function deretSkala(s){ if(s>22)return'Di atas rata-rata'; if(s>17)return'Rata-rata atas'; if(s>12)return'Rata-rata'; if(s>7)return'Rata-rata bawah'; return'Di bawah rata-rata'; }
+function deretKat(s){ if(s>22)return'BS'; if(s>17)return'B'; if(s>12)return'C'; if(s>7)return'K'; return'KS'; }
 function infoSkala(s){ if(s>27)return'Di atas rata-rata'; if(s>20)return'Rata-rata atas'; if(s>11)return'Rata-rata'; if(s>8)return'Rata-rata bawah'; return'Di bawah rata-rata'; }
 function infoKat(s){ if(s>27)return'BS'; if(s>20)return'B'; if(s>11)return'C'; if(s>8)return'K'; return'KS'; }
 function spKat(s){ if(s>94)return'Di atas rata-rata'; if(s>72)return'Rata-rata atas'; if(s>38)return'Rata-rata'; if(s>32)return'Rata-rata bawah'; return'Di bawah rata-rata'; }
@@ -1514,6 +1521,7 @@ function hitungSemua(){
   if(document.getElementById('skor_arit').value||document.getElementById('skor_deret').value){
     setRC('res_logmat_skor',logmat.toFixed(1)); setRC('res_logmat_skala',logmatSkala(logmat)); setCatRC('res_logmat_kat',logmatKat(logmat));
   }
+  if(document.getElementById('skor_deret').value){ setRC('res_deret_skala',deretSkala(deret)); setCatRC('res_deret_kat',deretKat(deret)); }
   if(document.getElementById('skor_info').value){ setRC('res_info_skala',infoSkala(info)); setCatRC('res_info_kat',infoKat(info)); }
 
   const sp=comp+ana+arit+deret;
@@ -1526,6 +1534,7 @@ function hitungSemua(){
     comp_skala:compSkala(comp), comp_kat:compKat(comp),
     ana_skala:anaSkala(ana), ana_kat:anaKat(ana),
     logmat_skala:logmatSkala(logmat), logmat_kat:logmatKat(logmat),
+    deret_skala:deretSkala(deret), deret_kat:deretKat(deret),
     info_skala:infoSkala(info), info_kat:infoKat(info),
     sp_kat:spKat(sp),
     emosi:EMO_VALS.emosi||0, sosial:EMO_VALS.sosial||0, motiv:EMO_VALS.motiv||0, ps:EMO_VALS.ps||0
